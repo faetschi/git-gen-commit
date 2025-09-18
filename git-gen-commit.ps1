@@ -480,9 +480,26 @@ function Generate-Final-Commit {
 # 🚀 Main Execution
 #    EDIT exec param here
 # =======================================================
+# Show diff in verbose mode
 if ($Verbose) {
     Write-Host "`n=== VERBOSE MODE: Full Diff ===" -ForegroundColor Yellow
-    Colorize-Diff $DIFF
+    
+    # Split into lines and process with proper coloring
+    $diffLines = $DIFF -split "`n"
+    foreach ($line in $diffLines) {
+        if ($line -match '^diff --git') {
+            Write-Host $line -ForegroundColor Cyan
+        } elseif ($line -match '^@@.*@@') {
+            Write-Host $line -ForegroundColor Yellow
+        } elseif ($line.StartsWith("+")) {
+            Write-Host $line -ForegroundColor Green
+        } elseif ($line.StartsWith("-")) {
+            Write-Host $line -ForegroundColor Red
+        } else {
+            Write-Host $line -ForegroundColor Gray
+        }
+    }
+    
     Write-Host "`n=== End of diff ===`n" -ForegroundColor Yellow
 }
 
