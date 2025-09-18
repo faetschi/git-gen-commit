@@ -480,6 +480,12 @@ function Generate-Final-Commit {
 # 🚀 Main Execution
 #    EDIT exec param here
 # =======================================================
+if ($Verbose) {
+    Write-Host "`n=== VERBOSE MODE: Full Diff ===" -ForegroundColor Yellow
+    Colorize-Diff $DIFF
+    Write-Host "`n=== End of diff ===`n" -ForegroundColor Yellow
+}
+
 $chunks = Split-Diff $DIFF
 $finalCommitMessage = $null
 $maxAttempts = 3
