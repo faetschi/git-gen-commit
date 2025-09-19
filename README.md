@@ -4,23 +4,30 @@ This guide explains how to install and use `git-gen-commit` in different termina
 ## For PowerShell
 
 ### Steps:
-1. **Navigate to the project directory**
-2. **Adjust paths in the ``installer.ps1`` script**
-3. **Run the installer script**
-   ``.\installer.ps1``
-4. **(Optional)** Adjust model configuration in "C:\tools\git-gen-commit\model-config.json"
+1. **Adjust paths in the ``installer.ps1`` script**
+2. **Open PowerShell Window**
+3. **Navigate to the project directory and run:**
+   ```shell
+   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+   ```
+4. **Run the installer script in the same PowerShell Window:**
+   ```shell
+   .\installer.ps1
+   ```
+- **(Optional)** Adjust model configuration in ``"C:\tools\git-gen-commit\model-config.json"``
 
 
 ## Usage
 
-After installation, you can run the script from anywhere in your terminal:
-
+After installation, you can run ``git-gen-commit`` from anywhere in your terminal:
+```bash
 git-gen-commit
-
+```
 
 
 > **[!WARNING]**  
-> GIT BASH / WSL VERSION IS DEPRECATED, NEEDS UPDATES FROM POWERSHELL VERSION
+> GIT BASH / WSL VERSION IS DEPRECATED
+> IT IS MISSING UPDATES/FEATURES FROM POWERSHELL VERSION
 
 ## For Git Bash / WSL
 

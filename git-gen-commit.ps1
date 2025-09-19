@@ -431,7 +431,7 @@ function Invoke-OllamaApi {
     
     try {
         # Call Ollama API
-        $response = Invoke-RestMethod -Uri "http://lxiki001t.oekb.co.at:11434/api/generate" `
+        $response = Invoke-RestMethod -Uri "https://ollama-test.oekb.at/api/generate" `
                                      -Method Post `
                                      -ContentType "application/json" `
                                      -Body $jsonPayload

@@ -14,7 +14,7 @@ Write-Host "Created directories" -ForegroundColor Green
 ###      YOUR ACTUAL SCRIPT LOCATION      ####
 ### Copy-Item "<REPLACE>" "<LEAVE AS IS>" ####
 ##############################################
-Copy-Item "C:\Workspace\KI Development\git-gen-commit\git-gen-commit.ps1" "C:\tools\git-gen-commit\git-gen-commit.ps1"
+Copy-Item "C:\Workspace\Repos\git-gen-commit\git-gen-commit.ps1" "C:\tools\git-gen-commit\git-gen-commit.ps1"
 
 
 Write-Host "Copied PowerShell script" -ForegroundColor Green
