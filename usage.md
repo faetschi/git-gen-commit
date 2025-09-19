@@ -26,7 +26,3 @@ git reset --soft HEAD~1
 
 #### Reset git add
 git restore <file>
-
-#### Applying code changes in .sh file
-cp git-gen-commit.sh ~/bin/git-gen-commit
-chmod +x ~/bin/git-gen-commit
