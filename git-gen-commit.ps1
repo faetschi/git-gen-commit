@@ -364,80 +364,99 @@ function Split-Diff {
 # =======================================================
 function Generate-Summary-Prompt {
     param([string]$DiffContent, [int]$MaxChars)
-    $prompt = @"
-You are an expert software engineer analyzing a Git diff.
-Your task is to create a **very short, concise summary** (1-2 sentences max) of what changed.
-Focus on the functional impact and technical details that matter to developers.
-Include specific file names, function names, or code patterns that were modified.
-Keep it factual and technical - no introductory phrases.
-Here is the diff:
-$DiffContent
-"@
-
-    if ($MaxChars -gt 0) {
-        $prompt += "`nIMPORTANT: Limit your response to maximum $MaxChars characters."
+    $summaryTemplate = $null
+    if (Test-Path $CONFIG_FILE) {
+        try {
+            $config = Get-Content $CONFIG_FILE | ConvertFrom-Json
+            if ($config -and $config.summary_prompt_template) {
+                $summaryTemplate = $config.summary_prompt_template
+                if ($Verbose) {
+                    Write-Host "Loaded summary template from config:" -ForegroundColor Cyan
+                    Write-Host $summaryTemplate -ForegroundColor Gray
+                }
+            }
+        }
+        catch {
+            Write-Color "Error reading summary prompt template from config" -Color "red"
+            exit 1
+        }
+    }
+    if (-not $summaryTemplate) {
+        Write-Color "Error: summary_prompt_template not found in config file" -Color "red"
+        exit 1
     }
     
+    # Use the actual template with proper variable replacement using {diff_content} and {max_chars}
+    $prompt = $summaryTemplate -replace '\{diff_content\}', $DiffContent
+    if ($MaxChars -gt 0) {
+        $prompt = $prompt -replace '\{max_chars\}', $MaxChars.ToString()
+    }
     return $prompt.Trim()
 }
 
 function Generate-Commit-Prompt {
     param([string]$Summary, [int]$MaxChars)
     
-    $prompt = @"
-You are a conventional commit message generator.
-Generate ONLY ONE conventional commit message in EXACT format:
-<type>: <subject>
-Commit message types and their meanings:
-- fix: A bug fix
-- feat: A new feature
-- docs: Documentation only changes
-- style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
-- refactor: A code change that neither fixes a bug nor adds a feature
-- perf: A code change that improves performance
-- test: Adding missing tests or correcting existing tests
-- chore: Changes to the build process or auxiliary tools and libraries such as documentation generation
-- ci: Changes to our CI configuration files and scripts
-- revert: Reverts a previous commit
-DO NOT include ANY introductory text, explanations, or markdown.
-DO NOT include any words like "This is", "Here's", "The change", etc.
-DO NOT add any extra formatting or quotes.
-DO NOT respond with anything except the commit message.
-Summary of changes:
-"$Summary"
-Commit message (respond with ONLY this):
-"@
+    # Load template from config
+    $commitTemplate = $null
+    if (Test-Path $CONFIG_FILE) {
+        try {
+            $config = Get-Content $CONFIG_FILE | ConvertFrom-Json
+            if ($config -and $config.commit_prompt_template) {
+                $commitTemplate = $config.commit_prompt_template
+                if ($Verbose) {
+                    Write-Host "Loaded commit template from config:" -ForegroundColor Cyan
+                    Write-Host $commitTemplate -ForegroundColor Gray
+                }
+            }
+        }
+        catch {
+            Write-Color "Error reading commit prompt template from config" -Color "red"
+            exit 1
+        }
+    }
+    
+    if (-not $commitTemplate) {
+        Write-Color "Error: commit_prompt_template not found in config file" -Color "red"
+        exit 1
+    }
+    
+    # Use the actual template with proper variable replacement using {summary} and {max_chars}
+    $prompt = $commitTemplate -replace '\{summary\}', $Summary
     if ($MaxChars -gt 0) {
-        $prompt += "`nIMPORTANT: Limit your response to maximum $MaxChars characters."
+        $prompt = $prompt -replace '\{max_chars\}', $MaxChars.ToString()
     }
     
     return $prompt.Trim()
 }
 
 # =======================================================
-# 🤖 Ollama API Call Function (Maximum Performance)
+# 🤖 Ollama API Call Function
 # =======================================================
 function Invoke-OllamaApi {
     param([string]$Model, [string]$Prompt)
     
+    # Create JSON payload
+    $escapedPrompt = $Prompt -replace '\\', '\\\\' -replace '"', '\\"' -replace "`n", '\n' -replace "`r", '\r' -replace "`t", '\t'
+    $jsonPayload = @{
+        model = $Model
+        prompt = $escapedPrompt
+        stream = $false
+        think = $false
+    } | ConvertTo-Json
+    
     try {
-        # Use curl.exe with direct payload construction
-        $response = curl.exe -s -X POST "https://ollama-test.oekb.at/api/generate" `
-                            -H "Content-Type: application/json" `
-                            -d "{`"model`":`"$Model`",`"prompt`":`"$Prompt`",`"stream`":false,`"think`":false}"
+        # Call Ollama API
+        $response = Invoke-RestMethod -Uri "https://ollama-test.oekb.at/api/generate" `
+                                     -Method Post `
+                                     -ContentType "application/json" `
+                                     -Body $jsonPayload
         
-        # Extract just the response part (assuming curl returns valid JSON)
-        if ($response) {
-            # Simple regex to extract the response field
-            $match = [regex]::Match($response, '"response":"([^"]*)"')
-            if ($match.Success) {
-                return $match.Groups[1].Value
-            } else {
-                Write-Color "Ollama API Error: Could not parse response" -Color "red"
-                return $null
-            }
+        # Extract response
+        if ($response.response) {
+            return $response.response
         } else {
-            Write-Color "Ollama API Error: Empty response" -Color "red"
+            Write-Color "Ollama API Error: No response found" -Color "red"
             return $null
         }
     } catch {
