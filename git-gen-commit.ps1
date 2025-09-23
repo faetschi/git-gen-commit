@@ -415,32 +415,29 @@ Commit message (respond with ONLY this):
 }
 
 # =======================================================
-# 🤖 Ollama API Call Function
+# 🤖 Ollama API Call Function (Maximum Performance)
 # =======================================================
 function Invoke-OllamaApi {
     param([string]$Model, [string]$Prompt)
     
-    # Create JSON payload
-    $escapedPrompt = $Prompt -replace '\\', '\\\\' -replace '"', '\\"' -replace "`n", '\n' -replace "`r", '\r' -replace "`t", '\t'
-    $jsonPayload = @{
-        model = $Model
-        prompt = $escapedPrompt
-        stream = $false
-        think = $false
-    } | ConvertTo-Json
-    
     try {
-        # Call Ollama API
-        $response = Invoke-RestMethod -Uri "https://ollama-test.oekb.at/api/generate" `
-                                     -Method Post `
-                                     -ContentType "application/json" `
-                                     -Body $jsonPayload
+        # Use curl.exe with direct payload construction
+        $response = curl.exe -s -X POST "https://ollama-test.oekb.at/api/generate" `
+                            -H "Content-Type: application/json" `
+                            -d "{`"model`":`"$Model`",`"prompt`":`"$Prompt`",`"stream`":false,`"think`":false}"
         
-        # Extract response
-        if ($response.response) {
-            return $response.response
+        # Extract just the response part (assuming curl returns valid JSON)
+        if ($response) {
+            # Simple regex to extract the response field
+            $match = [regex]::Match($response, '"response":"([^"]*)"')
+            if ($match.Success) {
+                return $match.Groups[1].Value
+            } else {
+                Write-Color "Ollama API Error: Could not parse response" -Color "red"
+                return $null
+            }
         } else {
-            Write-Color "Ollama API Error: No response found" -Color "red"
+            Write-Color "Ollama API Error: Empty response" -Color "red"
             return $null
         }
     } catch {
