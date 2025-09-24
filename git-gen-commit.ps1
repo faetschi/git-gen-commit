@@ -3,13 +3,6 @@
 # Git Gen Commit PowerShell Version
 # =======================================================
 
-# Argument parsing
-param(
-    [switch]$OnlyMessage,
-    [switch]$Verbose,
-    [switch]$ResetModels
-)
-
 # Initialize variables
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $CONFIG_FILE = Join-Path $SCRIPT_DIR "model-config.json"
@@ -17,8 +10,30 @@ $SetModel = $null
 $Limit = $null
 $Model = $null
 $DIFF_CONTEXT = $null
-$ResetModels = $false
+$Reset = $false
 $HELP = $false
+$Verbose = $false
+$OnlyMessage = $false
+
+# Colors (PowerShell equivalent)
+function Write-Color {
+    param([string]$Text, [string]$Color)
+    switch ($Color) {
+        "red" { Write-Host $Text -ForegroundColor Red }
+        "green" { Write-Host $Text -ForegroundColor Green }
+        "yellow" { Write-Host $Text -ForegroundColor Yellow }
+        "gray" { Write-Host $Text -ForegroundColor Gray }
+        "white" { Write-Host $Text -ForegroundColor White }
+        "cyan" { Write-Host $Text -ForegroundColor Cyan }
+        "magenta" { Write-Host $Text -ForegroundColor Magenta }
+        default { Write-Host $Text }
+    }
+}
+
+function Write-Bold {
+    param([string]$Text)
+    Write-Host $Text -ForegroundColor White -BackgroundColor Black
+}
 
 # Parse arguments manually since PowerShell's param() doesn't support complex argument parsing like bash
 $argIndex = 0
@@ -27,8 +42,8 @@ while ($argIndex -lt $args.Count) {
     switch ($arg) {
         "--only-message" { $OnlyMessage = $true; $argIndex++ }
         "--verbose" { $Verbose = $true; $argIndex++ }
-        "-h" { $HELP = $true; $argIndex++ }
-        "--help" { $HELP = $true; $argIndex++ }
+        "--h" { $HELP = $true; $argIndex++ }
+        "--h" { $HELP = $true; $argIndex++ }
         "--model" {
             if ($argIndex + 1 -lt $args.Count -and $args[$argIndex + 1] -notmatch "^--") {
                 $MODEL_VARIANT = $args[$argIndex + 1]
@@ -47,12 +62,8 @@ while ($argIndex -lt $args.Count) {
                 exit 1
             }
         }
-        "--reset-models" { 
-            $ResetModels = $true; 
-            $argIndex++ 
-        }
-        "--reset-model" { 
-            $ResetModels = $true; 
+        "--reset" { 
+            $Reset = $true; 
             $argIndex++ 
         }
         "--context" {
@@ -81,26 +92,6 @@ while ($argIndex -lt $args.Count) {
             $argIndex++
         }
     }
-}
-
-# Colors (PowerShell equivalent)
-function Write-Color {
-    param([string]$Text, [string]$Color)
-    switch ($Color) {
-        "red" { Write-Host $Text -ForegroundColor Red }
-        "green" { Write-Host $Text -ForegroundColor Green }
-        "yellow" { Write-Host $Text -ForegroundColor Yellow }
-        "gray" { Write-Host $Text -ForegroundColor Gray }
-        "white" { Write-Host $Text -ForegroundColor White }
-        "cyan" { Write-Host $Text -ForegroundColor Cyan }
-        "magenta" { Write-Host $Text -ForegroundColor Magenta }
-        default { Write-Host $Text }
-    }
-}
-
-function Write-Bold {
-    param([string]$Text)
-    Write-Host $Text -ForegroundColor White -BackgroundColor Black
 }
 
 ### Load Config
@@ -133,10 +124,83 @@ if (-not $DEFAULT_MODEL_SP_COMMIT) {
     $DEFAULT_MODEL_SP_COMMIT = "qwen3-coder:latest"
 }
 
-### Set Model
+# =======================================================
+# 📋 Header
+# =======================================================
+if (-not $HELP -and -not $OnlyMessage) {
+    Write-Bold "Git Gen Commit v1.0"
+}
+
+# =======================================================
+# INFO
+# =======================================================
+
+# Check for help flag and display usage information
+if ($HELP) {
+    Write-Host "Git Gen Commit Help" -ForegroundColor Green
+    Write-Host "Usage: git-gen-commit [OPTIONS]" -ForegroundColor Yellow
+    Write-Host " "
+    Write-Host "Options:" -ForegroundColor Yellow
+    Write-Host "  --only-message     Output only the commit message" -ForegroundColor White
+    Write-Host "  --verbose          Enable verbose output" -ForegroundColor White
+    Write-Host "  -h                 Show this help message" -ForegroundColor White
+    Write-Host "  --model MODEL      Specify model variant" -ForegroundColor White
+    Write-Host "  --set-model MODEL  Set the model for commit message generation" -ForegroundColor White
+    Write-Host "  --reset            Reset configuration to defaults" -ForegroundColor White
+    Write-Host "  --context NUM      Set diff context lines (default: 3)" -ForegroundColor White
+    Write-Host "  --limit NUM        Limit response to maximum number of characters" -ForegroundColor White
+    exit 0
+}
+
+# =======================================================
+# 🔍 Model Validation Function
+# =======================================================
+function TestModelExists {
+    param([string]$ModelName)
+    
+    try {
+        # Get list of available models
+        $models = Invoke-RestMethod -Uri "https://ollama-test.oekb.at/api/tags" -Method Get -TimeoutSec 10
+        
+        if ($models -and $models.models) {
+            # Check if model exists in the list
+            foreach ($model in $models.models) {
+                if ($model.name -eq $ModelName -or $model.name -like "${ModelName}*") {
+                    return $true
+                }
+            }
+        }
+        return $false
+    } catch {
+        Write-Color "Warning: Could not validate model existence. Proceeding with API call." -Color "yellow"
+        Write-Color "Error: $($_.Exception.Message)" -Color "red"
+        return $true  # Continue anyway if validation fails
+    }
+}
+
+function Get-AvailableModels {
+    try {
+        $models = Invoke-RestMethod -Uri "https://ollama-test.oekb.at/api/tags" -Method Get -TimeoutSec 10
+        
+        if ($models -and $models.models) {
+            return $models.models | ForEach-Object { $_.name }
+        } else {
+            return @("No models found")
+        }
+    } catch {
+        return @("Error retrieving models: $($_.Exception.Message)")
+    }
+}
 
 # Check if user wants to set model permanently
 if ($SetModel) {
+     # Validate that the model exists before setting it
+    if (-not (TestModelExists $SetModel)) {
+        Write-Color "Error: Model '$SetModel' not found on Ollama server." -Color "red"
+        Write-Color "Available models:" -Color "yellow"
+        Get-AvailableModels | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+        exit 1
+    }
     # Load existing config if it exists
     if (Test-Path $CONFIG_FILE) {
         $existingConfig = Get-Content -Path $CONFIG_FILE -Raw | ConvertFrom-Json
@@ -157,6 +221,40 @@ if ($SetModel) {
             model_sp_commit = $MODEL_SP_COMMIT
             model_sp_change_default = $MODEL_SP_CHANGE_DEFAULT
             model_sp_commit_default = $MODEL_SP_COMMIT_DEFAULT
+            summary_prompt_template = @'
+You are an expert software engineer analyzing a Git diff.
+Your task is to create a **very short, concise summary** (1-2 sentences max) of what changed.
+Focus on the functional impact and technical details that matter to developers.
+Include specific file names, function names, or code patterns that were modified.
+Keep it factual and technical - no introductory phrases.
+Here is the diff:
+{diff_content}
+IMPORTANT: Limit your response to maximum {max_chars} characters.
+'@
+    commit_prompt_template = @'
+You are a conventional commit message generator.
+Generate ONLY ONE conventional commit message in EXACT format:
+<type>: <subject>
+Commit message types and their meanings:
+- fix: A bug fix
+- feat: A new feature
+- docs: Documentation only changes
+- style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+- refactor: A code change that neither fixes a bug nor adds a feature
+- perf: A code change that improves performance
+- test: Adding missing tests or correcting existing tests
+- chore: Changes to the build process or auxiliary tools and libraries such as documentation generation
+- ci: Changes to our CI configuration files and scripts
+- revert: Reverts a previous commit
+DO NOT include ANY introductory text, explanations, or markdown.
+DO NOT include any words like "This is", "Here's", "The change", etc.
+DO NOT add any extra formatting or quotes.
+DO NOT respond with anything except the commit message.
+Summary of changes:
+"{summary}"
+Commit message (respond with ONLY this):
+'@
+    max_chars = "200"
         } | ConvertTo-Json
 
         $config | Out-File -FilePath $CONFIG_FILE -Encoding UTF8
@@ -170,15 +268,48 @@ if ($SetModel) {
     }
 }
 
-### Reset Model
-if ($ResetModels) {
-    Write-Host "Resetting models to default configuration..." -ForegroundColor Yellow
-    $defaultConfig = @{
-        model_sp_change = "tavernari/git-commit-message:sp_change"
-        model_sp_commit = "qwen3-coder:latest" # "tavernari/git-commit-message:sp_commit"
-        model_sp_change_default = "tavernari/git-commit-message:sp_change"
-        model_sp_commit_default = "qwen3-coder:latest" # "tavernari/git-commit-message:sp_commit"
-    } | ConvertTo-Json
+if ($Reset) {
+    Write-Host "Resetting to default configuration..." -ForegroundColor Yellow
+$defaultConfig = @{
+    model_sp_change = "tavernari/git-commit-message:sp_change"
+    model_sp_commit = "qwen3-coder:latest"
+    model_sp_change_default = "tavernari/git-commit-message:sp_change"
+    model_sp_commit_default = "qwen3-coder:latest"
+    summary_prompt_template = @'
+You are an expert software engineer analyzing a Git diff.
+Your task is to create a **very short, concise summary** (1-2 sentences max) of what changed.
+Focus on the functional impact and technical details that matter to developers.
+Include specific file names, function names, or code patterns that were modified.
+Keep it factual and technical - no introductory phrases.
+Here is the diff:
+{diff_content}
+IMPORTANT: Limit your response to maximum {max_chars} characters.
+'@
+    commit_prompt_template = @'
+You are a conventional commit message generator.
+Generate ONLY ONE conventional commit message in EXACT format:
+<type>: <subject>
+Commit message types and their meanings:
+- fix: A bug fix
+- feat: A new feature
+- docs: Documentation only changes
+- style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+- refactor: A code change that neither fixes a bug nor adds a feature
+- perf: A code change that improves performance
+- test: Adding missing tests or correcting existing tests
+- chore: Changes to the build process or auxiliary tools and libraries such as documentation generation
+- ci: Changes to our CI configuration files and scripts
+- revert: Reverts a previous commit
+DO NOT include ANY introductory text, explanations, or markdown.
+DO NOT include any words like "This is", "Here's", "The change", etc.
+DO NOT add any extra formatting or quotes.
+DO NOT respond with anything except the commit message.
+Summary of changes:
+"{summary}"
+Commit message (respond with ONLY this):
+'@
+    max_chars = "200"
+} | ConvertTo-Json
     
     # Ensure directory exists
     $configDir = Split-Path $CONFIG_FILE -Parent
@@ -198,34 +329,6 @@ if ($ResetModels) {
     }
 }
 
-# =======================================================
-# 📋 Header
-# =======================================================
-if (-not $HELP -and -not $OnlyMessage) {
-    Write-Bold "Git Gen Commit"
-}
-
-# =======================================================
-# INFO
-# =======================================================
-
-# Check for help flag and display usage information
-if ($HELP) {
-    Write-Host "Git Gen Commit Help" -ForegroundColor Green
-    Write-Host "Usage: git-gen-commit [OPTIONS]" -ForegroundColor Yellow
-    Write-Host " "
-    Write-Host "Options:" -ForegroundColor Yellow
-    Write-Host "  --only-message     Output only the commit message" -ForegroundColor White
-    Write-Host "  --verbose          Enable verbose output" -ForegroundColor White
-    Write-Host "  -h, --help         Show this help message" -ForegroundColor White
-    Write-Host "  --model MODEL      Specify model variant" -ForegroundColor White
-    Write-Host "  --set-model MODEL  Set the model for commit message generation" -ForegroundColor White
-    Write-Host "  --reset-models     Reset model configuration to defaults" -ForegroundColor White
-    Write-Host "  --context NUM      Set diff context lines (default: 3)" -ForegroundColor White
-    Write-Host "  --limit NUM        Limit response to maximum number of characters" -ForegroundColor White
-    exit 0
-}
-
 # Check if there are any changes to commit
 $gitStatus = git status --porcelain
 if ([string]::IsNullOrWhiteSpace($gitStatus)) {
@@ -235,20 +338,14 @@ if ([string]::IsNullOrWhiteSpace($gitStatus)) {
 
 # Display current configuration if verbose is enabled
 if ($Verbose) {
-    if ($OnlyMessage) {
-        Write-Host "Only message mode active" -ForegroundColor Green
-    }
     if ($MODEL_VARIANT) {
         Write-Host "Model set to: $MODEL_VARIANT" -ForegroundColor Cyan
     }
-    if ($Limit -gt 0) {
-        Write-Host "Character limit set to: $Limit characters" -ForegroundColor Cyan
-    }
-    if ($DIFF_CONTEXT -gt 0) {
-        Write-Host "Context set to: $DIFF_CONTEXT lines" -ForegroundColor Cyan
-    }
 }
 
+if ($Limit) {
+    Write-Host "Character limit set to: $Limit characters" -ForegroundColor Green
+}
 
 # =======================================================
 # ⚙️ Configuration
@@ -271,7 +368,9 @@ if ($Model) {
         if ($config -and $config.model_sp_change -and $config.model_sp_commit) {
             $MODEL_SP_CHANGE = $config.model_sp_change
             $MODEL_SP_COMMIT = $config.model_sp_commit
-            Write-Host "Loaded model configuration from: $CONFIG_FILE" -ForegroundColor Cyan
+            if (!$OnlyMessage) {
+                Write-Host "Loaded model configuration from: $CONFIG_FILE" -ForegroundColor Cyan
+            }
         } else {
             # Config file exists but has missing fields, use defaults
             $MODEL_SP_CHANGE = $DEFAULT_MODEL_SP_CHANGE
@@ -312,7 +411,13 @@ function Update-ConfigFile {
 # =======================================================
 # 🔍 Collect diffs
 # =======================================================
-$DIFF = git diff --staged -U3
+if ($DIFF_CONTEXT -gt 0) {
+    Write-Host "Using context: $DIFF_CONTEXT" -ForegroundColor Green
+    # Use explicit command execution with proper quoting
+    $DIFF = & git diff --staged "--unified=$DIFF_CONTEXT"
+} else {
+    $DIFF = git diff --staged -U3
+}
 if ([string]::IsNullOrWhiteSpace($DIFF)) {
     Write-Color "No staged changes detected. Run 'git add' first." -Color "red"
     exit 1
@@ -370,10 +475,6 @@ function Generate-Summary-Prompt {
             $config = Get-Content $CONFIG_FILE | ConvertFrom-Json
             if ($config -and $config.summary_prompt_template) {
                 $summaryTemplate = $config.summary_prompt_template
-                if ($Verbose) {
-                    Write-Host "Loaded summary template from config:" -ForegroundColor Cyan
-                    Write-Host $summaryTemplate -ForegroundColor Gray
-                }
             }
         }
         catch {
@@ -404,10 +505,6 @@ function Generate-Commit-Prompt {
             $config = Get-Content $CONFIG_FILE | ConvertFrom-Json
             if ($config -and $config.commit_prompt_template) {
                 $commitTemplate = $config.commit_prompt_template
-                if ($Verbose) {
-                    Write-Host "Loaded commit template from config:" -ForegroundColor Cyan
-                    Write-Host $commitTemplate -ForegroundColor Gray
-                }
             }
         }
         catch {
@@ -551,8 +648,9 @@ while ($true) {
     Write-Host "--- Proposed Commit ---"
     Write-Host $finalCommitMessage
     Write-Host "-----------------------"
+    Write-Host "Choose: (c)ommit, (e)dit, (r)egenerate, (d)iscard > "
     
-    $finalChoice = Read-Host "Choose: (c)ommit, (e)dit, (r)egenerate, (d)iscard > "
+    $finalChoice = Read-Host
     
 	switch ($finalChoice.ToLower()) {
 		"c" {

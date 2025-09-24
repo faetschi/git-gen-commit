@@ -1,23 +1,73 @@
-$CONFIG_FILE = "C:\tools\git-gen-commit\model-config.json"
+# =======================================================
+# Git Gen Commit PowerShell Setup Script
+# =======================================================
+# Configuration - Make it consistent with bash version
+$INSTALL_DIR = "$env:USERPROFILE/bin/git-gen-commit"
+$CONFIG_FILE = "$INSTALL_DIR/model-config.json"
 
-# Complete setup script for git-gen-commit
-Write-Host "Starting git-gen-commit setup..." -ForegroundColor Yellow
+Write-Host "Starting git-gen-commit setup..." -ForegroundColor White
 
-# Step 1: Create directories
-mkdir "C:\tools\git-gen-commit" -Force
-Write-Host "Created directories" -ForegroundColor Green
+# Step 1: Create directories properly using Windows path
+# Convert to proper Windows path format
+$USERPROFILE_WIN = $env:USERPROFILE -replace '/', '\'
+$WIN_INSTALL_DIR = "$USERPROFILE_WIN\bin\git-gen-commit"
+Write-Host "Creating directory: $WIN_INSTALL_DIR" -ForegroundColor White
+
+# Create the full directory structure with explicit nested directory creation
+try {
+    # Remove existing directory if it exists
+    Remove-Item -Path $WIN_INSTALL_DIR -Recurse -Force -ErrorAction SilentlyContinue
+    
+    # Create directory structure step by step to ensure it works
+    $parentDir = Split-Path $WIN_INSTALL_DIR -Parent
+    Write-Host "Creating parent directory: $parentDir" -ForegroundColor White
+    if (!(Test-Path $parentDir)) {
+        New-Item -Path $parentDir -ItemType Directory -Force | Out-Null
+        Write-Host "Created parent directory successfully" -ForegroundColor White
+    }
+    
+    Write-Host "Creating final directory: $WIN_INSTALL_DIR" -ForegroundColor White
+    New-Item -Path $WIN_INSTALL_DIR -ItemType Directory -Force | Out-Null
+    Write-Host "Created directories successfully: $WIN_INSTALL_DIR" -ForegroundColor White
+    
+} catch {
+    Write-Host "Error creating directories: $_" -ForegroundColor Red
+    exit 1
+}
 
 # Step 2: Copy your PowerShell script (replace with actual path to your script)
 ##############################################
 ### ⚠️  IMPORTANT CONFIGURATION STEP ⚠️  ####
 ###   REPLACE THE SOURCE PATH BELOW WITH  #### 
 ###      YOUR ACTUAL SCRIPT LOCATION      ####
-### Copy-Item "<REPLACE>" "<LEAVE AS IS>" ####
 ##############################################
-Copy-Item "C:\Workspace\KI Development\git-gen-commit\git-gen-commit.ps1" "C:\tools\git-gen-commit\git-gen-commit.ps1"
+$SCRIPT_SOURCE = "C:\Workspace\KI Development\git-gen-commit\git-gen-commit.ps1"
+$SCRIPT_DESTINATION = "$WIN_INSTALL_DIR\git-gen-commit.ps1"
 
+Write-Host "Copying script from: $SCRIPT_SOURCE" -ForegroundColor White
+Write-Host "Copying script to: $SCRIPT_DESTINATION" -ForegroundColor White
 
-Write-Host "Copied PowerShell script" -ForegroundColor Green
+if (Test-Path $SCRIPT_SOURCE) {
+    try {
+        Copy-Item $SCRIPT_SOURCE $SCRIPT_DESTINATION
+        Write-Host "Copied PowerShell script successfully" -ForegroundColor White
+        
+        # Verify the file was copied
+        if (Test-Path $SCRIPT_DESTINATION) {
+            Write-Host "Verified: Script copied to destination" -ForegroundColor White
+        } else {
+            Write-Host "Error: Script not found at destination" -ForegroundColor Red
+            exit 1
+        }
+    } catch {
+        Write-Host "Error copying script: $_" -ForegroundColor Red
+        exit 1
+    }
+} else {
+    Write-Host "Warning: Script not found at source: $SCRIPT_SOURCE" -ForegroundColor Yellow
+    Write-Host "Please ensure your git-gen-commit.ps1 exists at this location" -ForegroundColor Yellow
+    exit 1
+}
 
 # Step 3: Create model-config.json with default values
 $defaultConfig = @{
@@ -33,7 +83,6 @@ Include specific file names, function names, or code patterns that were modified
 Keep it factual and technical - no introductory phrases.
 Here is the diff:
 {diff_content}
-
 IMPORTANT: Limit your response to maximum {max_chars} characters.
 '@
     commit_prompt_template = @'
@@ -61,60 +110,66 @@ Commit message (respond with ONLY this):
 '@
     max_chars = "200"
 } | ConvertTo-Json
+$defaultConfig | Out-File -FilePath "$WIN_INSTALL_DIR\model-config.json" -Encoding UTF8
+Write-Host "Created default configuration file: $WIN_INSTALL_DIR\model-config.json" -ForegroundColor White
 
-$defaultConfig | Out-File -FilePath $CONFIG_FILE -Encoding UTF8
-Write-Host "Created default configuration file: $CONFIG_FILE" -ForegroundColor Green
+# Step 4: Create batch file wrapper for Windows terminal compatibility
+$batchContent = "@echo off
+REM System-wide git-gen-commit wrapper
+powershell -ExecutionPolicy Bypass -File `"$WIN_INSTALL_DIR\git-gen-commit.ps1`" %*"
 
-# Check if curl is available
-if (!(Get-Command curl -ErrorAction SilentlyContinue)) {
-    Write-Host "curl not found. Installing curl via Winget..." -ForegroundColor Yellow
-    try {
-        winget install curl --silent
-        Write-Host "curl installed successfully!" -ForegroundColor Green
-        
-        # Verify installation worked
-        if (!(Get-Command curl -ErrorAction SilentlyContinue)) {
-            Write-Host "Warning: curl installation may have failed verification" -ForegroundColor Yellow
-        }
-    }
-    catch {
-        Write-Host "Failed to install curl via Winget: $($_.Exception.Message)" -ForegroundColor Red
-    }
-}
-
-# Step 4: Create batch file wrapper
-$batchContent = @'
-@echo off
-REM Run the PowerShell script with the same arguments
-powershell -ExecutionPolicy Bypass -File "C:\tools\git-gen-commit\git-gen-commit.ps1" %*
-'@
-Set-Content "C:\tools\git-gen-commit\git-gen-commit.bat" $batchContent
-Write-Host "Created batch file wrapper" -ForegroundColor Green
-
-# Step 4: Add to PATH (using the correct method)
-$existingPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
-if ($existingPath -notlike "*C:\tools\git-gen-commit*") {
-    $newPath = $existingPath + ";C:\tools\git-gen-commit"
-    [System.Environment]::SetEnvironmentVariable("Path", $newPath, "User")
-    Write-Host "Added C:\tools\git-gen-commit to PATH successfully!" -ForegroundColor Green
-} else {
-    Write-Host "PATH already contains C:\tools\git-gen-commit" -ForegroundColor Yellow
-}
-
-# Step 5: Create a simple test to verify it works
-Write-Host "`nTesting installation..." -ForegroundColor Yellow
 try {
-    # Try to run the command
-    $testResult = cmd /c "git-gen-commit.bat --help" 2>$null
-    Write-Host "Installation successful!" -ForegroundColor Green
+    # Write with explicit ASCII encoding to prevent any BOM issues
+    $batchContent | Out-File -FilePath "$WIN_INSTALL_DIR\git-gen-commit.bat" -Encoding Ascii -Force -NoNewline
+    Write-Host "Created batch file: $WIN_INSTALL_DIR\git-gen-commit.bat" -ForegroundColor White
+    
+    # Verify batch file was created
+    if (Test-Path "$WIN_INSTALL_DIR\git-gen-commit.bat") {
+        Write-Host "Verified: Batch file created successfully" -ForegroundColor White
+    } else {
+        Write-Host "Error: Batch file not created" -ForegroundColor Red
+        exit 1
+    }
 } catch {
-    Write-Host "Installation completed, but testing failed. Please restart your terminal." -ForegroundColor Yellow
+    Write-Host "Error creating batch file: $_" -ForegroundColor Red
+    exit 1
 }
 
-Write-Host "`nSetup complete! Please:" -ForegroundColor Cyan
-Write-Host "1. Close ALL terminal windows (including VSCode)" -ForegroundColor Cyan
-Write-Host "2. Reopen VSCode terminal" -ForegroundColor Cyan
-Write-Host "3. Test with: git-gen-commit --help" -ForegroundColor Cyan
+# Step 5: Set up Git alias using simple approach that works with all parameters
+Write-Host "Setting up Git alias..." -ForegroundColor White
 
-# Force refresh of environment variables for current session
-$env:Path = [System.Environment]::GetEnvironmentVariable("Path", "User")
+try {
+    # Simple approach that works reliably with all parameters
+    $gitAlias = '!C:/Users/Developer/bin/git-gen-commit/git-gen-commit.bat'
+    git config --global alias.gen-commit "$gitAlias"
+    Write-Host "Git alias 'gen-commit' set successfully!" -ForegroundColor Green
+    
+} catch {
+    Write-Host "Warning: Could not set Git alias automatically." -ForegroundColor Yellow
+    Write-Host "Set it manually with this command:" -ForegroundColor Yellow
+    Write-Host "  git config --global alias.gen-commit '!C:/Users/Developer/bin/git-gen-commit/git-gen-commit.bat'" -ForegroundColor Cyan
+}
+
+# Step 5: Add to PATH (as before)
+$existingPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+Write-Host "Current PATH contains: $existingPath" -ForegroundColor Yellow
+
+if ($existingPath -notlike "*$WIN_INSTALL_DIR*") {
+    $newPath = $existingPath + ";$WIN_INSTALL_DIR"
+    [System.Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+    Write-Host "Added $WIN_INSTALL_DIR to User PATH successfully!" -ForegroundColor White
+    Write-Host "NOTE: You need to restart your terminal/command prompt for PATH changes to take effect" -ForegroundColor Yellow
+} else {
+    Write-Host "PATH already contains $WIN_INSTALL_DIR" -ForegroundColor Yellow
+}
+
+# Step 6: Final verification
+Write-Host "`nFinal verification:" -ForegroundColor Magenta
+Write-Host "1. Directory exists: $(Test-Path $WIN_INSTALL_DIR)" -ForegroundColor White
+Write-Host "2. Script exists: $(Test-Path "$WIN_INSTALL_DIR\git-gen-commit.ps1")" -ForegroundColor White
+Write-Host "3. Batch file exists: $(Test-Path "$WIN_INSTALL_DIR\git-gen-commit.bat")" -ForegroundColor White
+
+Write-Host "`nSetup complete!" -ForegroundColor Green
+Write-Host "Important: You MUST restart your terminal/command prompt for the changes to take effect." -ForegroundColor Red
+Write-Host "After restarting, you can test:" -ForegroundColor White
+Write-Host "  git-gen-commit --h" -ForegroundColor Cyan
