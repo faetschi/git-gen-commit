@@ -7,7 +7,7 @@
 ###   REPLACE THE $SCRIPT_SOURCE BELOW WITH #### 
 ###      YOUR ACTUAL SCRIPT LOCATION        ####
 ################################################
-$SCRIPT_SOURCE = "C:\Workspace\KI Development\git-gen-commit\git-gen-commit.ps1"
+$SCRIPT_SOURCE = "C:\Workspace\Repos\git-gen-commit\git-gen-commit.ps1"
 ################################################
 
 # Configuration - Make it consistent with bash version
@@ -155,7 +155,6 @@ try {
 
 # Step 5: Add to PATH (as before)
 $existingPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
-Write-Host "Current PATH contains: $existingPath" -ForegroundColor Yellow
 
 if ($existingPath -notlike "*$WIN_INSTALL_DIR*") {
     $newPath = $existingPath + ";$WIN_INSTALL_DIR"
@@ -168,11 +167,12 @@ if ($existingPath -notlike "*$WIN_INSTALL_DIR*") {
 
 # Step 6: Final verification
 Write-Host "`nFinal verification:" -ForegroundColor Magenta
-Write-Host "1. Directory exists: $(Test-Path $WIN_INSTALL_DIR)" -ForegroundColor White
-Write-Host "2. Script exists: $(Test-Path "$WIN_INSTALL_DIR\git-gen-commit.ps1")" -ForegroundColor White
-Write-Host "3. Batch file exists: $(Test-Path "$WIN_INSTALL_DIR\git-gen-commit.bat")" -ForegroundColor White
+Write-Host "1. Directory exists: $(Test-Path $WIN_INSTALL_DIR)" -ForegroundColor Green
+Write-Host "2. Script exists: $(Test-Path "$WIN_INSTALL_DIR\git-gen-commit.ps1")" -ForegroundColor Green
+Write-Host "3. Batch file exists: $(Test-Path "$WIN_INSTALL_DIR\git-gen-commit.bat")" -ForegroundColor Green
 
-Write-Host "`nSetup complete!" -ForegroundColor Green
-Write-Host "Important: You MUST restart your terminal/command prompt for the changes to take effect." -ForegroundColor Red
-Write-Host "After restarting, you can test:" -ForegroundColor White
-Write-Host "  git-gen-commit --h" -ForegroundColor Cyan
+Write-Host "`nSetup complete!`n" -ForegroundColor Green
+
+Write-Host "Important: You MUST restart your terminal/command prompt for the changes to take effect.`n" -ForegroundColor Red
+Write-Host "After restarting, you can test:" -ForegroundColor Yellow
+Write-Host "  git gen-commit --h" -ForegroundColor Cyan
