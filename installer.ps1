@@ -1,6 +1,15 @@
 # =======================================================
 # Git Gen Commit PowerShell Setup Script
 # =======================================================
+
+################################################
+###  ⚠️  IMPORTANT CONFIGURATION STEP ⚠️   ####
+###   REPLACE THE $SCRIPT_SOURCE BELOW WITH #### 
+###      YOUR ACTUAL SCRIPT LOCATION        ####
+################################################
+$SCRIPT_SOURCE = "C:\Workspace\KI Development\git-gen-commit\git-gen-commit.ps1"
+################################################
+
 # Configuration - Make it consistent with bash version
 $INSTALL_DIR = "$env:USERPROFILE/bin/git-gen-commit"
 $CONFIG_FILE = "$INSTALL_DIR/model-config.json"
@@ -35,13 +44,7 @@ try {
     exit 1
 }
 
-# Step 2: Copy your PowerShell script (replace with actual path to your script)
-##############################################
-### ⚠️  IMPORTANT CONFIGURATION STEP ⚠️  ####
-###   REPLACE THE SOURCE PATH BELOW WITH  #### 
-###      YOUR ACTUAL SCRIPT LOCATION      ####
-##############################################
-$SCRIPT_SOURCE = "C:\Workspace\KI Development\git-gen-commit\git-gen-commit.ps1"
+# Step 2: Copy your PowerShell script
 $SCRIPT_DESTINATION = "$WIN_INSTALL_DIR\git-gen-commit.ps1"
 
 Write-Host "Copying script from: $SCRIPT_SOURCE" -ForegroundColor White
