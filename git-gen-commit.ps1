@@ -431,6 +431,20 @@ Original commit message:
     return $shortened
 }
 
+function GetUserContext {
+    Write-Host "Enter additional context for commit message (press Enter on empty line to finish):" -ForegroundColor Yellow
+    $userContext = ""
+    while ($true) {
+        $inputLine = Read-Host
+        if ([string]::IsNullOrWhiteSpace($inputLine)) {
+            break
+        }
+        $userContext += "$inputLine`n"
+    }
+    
+    return $userContext.Trim()
+}
+
 # =======================================================
 # 📝 Prompt Generation Functions
 # =======================================================
@@ -495,6 +509,141 @@ function Generate-Commit-Prompt {
 }
 
 # =======================================================
+# 📝 Prompt Generation Functions WITH CONTEXT
+# =======================================================
+function Generate-Summary-PromptWithContext {
+    param([string]$DiffContent, [string]$UserContext, [int]$MaxChars)
+    
+    $summaryTemplate = $null
+    if (Test-Path $CONFIG_FILE) {
+        try {
+            $config = Get-Content $CONFIG_FILE | ConvertFrom-Json
+            if ($config -and $config.summary_prompt_template) {
+                $summaryTemplate = $config.summary_prompt_template
+            }
+        }
+        catch {
+            Write-Color "Error reading summary prompt template from config" -Color "red"
+            exit 1
+        }
+    }
+    
+    if (-not $summaryTemplate) {
+        Write-Color "Error: summary_prompt_template not found in config file" -Color "red"
+        exit 1
+    }
+    
+    # Add user context to the diff content for better summarization
+    $prompt = $summaryTemplate -replace '\{diff_content\}', "$DiffContent`n`nUser Context: $UserContext"
+    if ($MaxChars -gt 0) {
+        $prompt = $prompt -replace '\{max_chars\}', $MaxChars.ToString()
+    }
+    
+    return $prompt.Trim()
+}
+
+function Generate-Commit-PromptWithContext {
+    param([string]$Summary, [string]$UserContext, [int]$MaxChars)
+    
+    # Load template from config
+    $commitTemplate = $null
+    if (Test-Path $CONFIG_FILE) {
+        try {
+            $config = Get-Content $CONFIG_FILE | ConvertFrom-Json
+            if ($config -and $config.commit_prompt_template) {
+                $commitTemplate = $config.commit_prompt_template
+            }
+        }
+        catch {
+            Write-Color "Error reading commit prompt template from config" -Color "red"
+            exit 1
+        }
+    }
+    
+    if (-not $commitTemplate) {
+        Write-Color "Error: commit_prompt_template not found in config file" -Color "red"
+        exit 1
+    }
+    
+    # Add user context to the summary for better commit message generation
+    $prompt = $commitTemplate -replace '\{summary\}', "$Summary`n`nUser Context: $UserContext"
+    if ($MaxChars -gt 0) {
+        $prompt = $prompt -replace '\{max_chars\}', $MaxChars.ToString()
+    }
+    
+    return $prompt.Trim()
+}
+
+# =======================================================
+# 📝 Generate Final Commit Messages
+# =======================================================
+function Generate-Final-Commit {
+    param([string]$DiffContent)
+
+    $options = @{}
+    if ($NumCtx) { $options.num_ctx = $NumCtx }
+    if ($NumPredict) { $options.num_predict = $NumPredict }
+    if ($Temperature) { $options.temperature = $Temperature }
+    if ($TopK) { $options.top_k = $TopK }
+    if ($TopP) { $options.top_p = $TopP }
+    
+    # Generate summary
+    $summaryPrompt = Generate-Summary-Prompt $DiffContent $Limit
+    $summary = Invoke-OllamaApi $MODEL_SP_CHANGE $summaryPrompt $options
+    
+    if (-not $summary) {
+        Write-Color "Failed to generate summary." -Color "yellow"
+        return $null
+    }
+
+    # Generate commit message from summary
+    $commitPrompt = Generate-Commit-Prompt $summary $Limit
+    $output = Invoke-OllamaApi $MODEL_SP_COMMIT $commitPrompt $options
+    
+    if ($output) {
+        return $output
+    } else {
+        Write-Color "Generation failed." -Color "yellow"
+        return $null
+    }
+}
+
+# =======================================================
+# 📝 Generate Final Commit Messages WITH CONTEXT
+# =======================================================
+
+function Generate-Final-CommitWithContext {
+    param([string]$DiffContent, [string]$UserContext)
+    
+    $options = @{ }
+    if ($NumCtx) { $options.num_ctx = $NumCtx }
+    if ($NumPredict) { $options.num_predict = $NumPredict }
+    if ($Temperature) { $options.temperature = $Temperature }
+    if ($TopK) { $options.top_k = $TopK }
+    if ($TopP) { $options.top_p = $TopP }
+    
+    # Generate summary with context
+    $summaryPrompt = Generate-Summary-PromptWithContext $DiffContent $UserContext $Limit
+    $summary = Invoke-OllamaApi $MODEL_SP_CHANGE $summaryPrompt $options
+    
+    if (-not $summary) {
+        Write-Color "Failed to generate summary with context." -Color "yellow"
+        return $finalCommitMessage  # Return original message if summary fails
+    }
+
+    # Generate commit message from summary with context
+    $commitPrompt = Generate-Commit-PromptWithContext $summary $UserContext $Limit
+    $output = Invoke-OllamaApi $MODEL_SP_COMMIT $commitPrompt $options
+    
+    if ($output) {
+        return $output
+    } else {
+        Write-Color "Generation failed." -Color "yellow"
+        return $finalCommitMessage  # Return original message if generation fails
+    }
+}
+
+# =======================================================
 # 🤖 Ollama API Call Function
 # =======================================================
 function Invoke-OllamaApi {
@@ -532,40 +681,6 @@ function Invoke-OllamaApi {
         }
     } catch {
         Write-Color "Ollama API Error: $($_.Exception.Message)" -Color "red"
-        return $null
-    }
-}
-
-# =======================================================
-# 📝 Generate Final Commit Message
-# =======================================================
-function Generate-Final-Commit {
-    param([string]$DiffContent)
-
-    $options = @{}
-    if ($NumCtx) { $options.num_ctx = $NumCtx }
-    if ($NumPredict) { $options.num_predict = $NumPredict }
-    if ($Temperature) { $options.temperature = $Temperature }
-    if ($TopK) { $options.top_k = $TopK }
-    if ($TopP) { $options.top_p = $TopP }
-    
-    # Generate summary
-    $summaryPrompt = Generate-Summary-Prompt $DiffContent $Limit
-    $summary = Invoke-OllamaApi $MODEL_SP_CHANGE $summaryPrompt $options
-    
-    if (-not $summary) {
-        Write-Color "Failed to generate summary." -Color "yellow"
-        return $null
-    }
-
-    # Generate commit message from summary
-    $commitPrompt = Generate-Commit-Prompt $summary $Limit
-    $output = Invoke-OllamaApi $MODEL_SP_COMMIT $commitPrompt $options
-    
-    if ($output) {
-        return $output
-    } else {
-        Write-Color "Generation failed." -Color "yellow"
         return $null
     }
 }
@@ -629,7 +744,7 @@ while ($true) {
     Write-Host "--- Proposed Commit ---"
     Write-Host $finalCommitMessage
     Write-Host "-----------------------"
-    Write-Host "Choose: (c)ommit, (e)dit, (r)egenerate, (d)iscard, (s)horter > "
+    Write-Host "Choose: (c)ommit, (e)dit, (r)egenerate, (d)iscard, (s)horter, (p)ropose > "
     
     $finalChoice = Read-Host
     
@@ -679,6 +794,17 @@ while ($true) {
                 Write-Color "Failed to shorten commit message." -Color "red"
                 continue
             }
+        }
+        "p" {
+            # Propose additional context for commit message
+            $userContext = GetUserContext
+            if ($userContext) {
+                Write-Host "Generating commit message with additional context..." -ForegroundColor Cyan
+                $finalCommitMessage = Generate-Final-CommitWithContext $DIFF $userContext
+            } else {
+                Write-Color "No context provided. Continuing with current message." -Color "yellow"
+            }
+            continue
         }
 		{($_ -eq "d") -or ($_ -eq "q")} {
             # Exit after discarding
