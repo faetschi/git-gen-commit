@@ -72,6 +72,10 @@ if (Test-Path $SCRIPT_SOURCE) {
     exit 1
 }
 
+######################################
+###  CHANGE DEFAULT PROMPTS HERE  #### 
+######################################
+
 # Step 3: Create model-config.json with default values
 $defaultConfig = @{
     model_sp_change = "tavernari/git-commit-message:sp_change"
@@ -91,7 +95,9 @@ IMPORTANT: Limit your response to maximum {max_chars} characters.
     commit_prompt_template = @'
 You are a conventional commit message generator.
 Generate ONLY ONE conventional commit message in EXACT format:
-<type>: <subject>
+1. First line: A short, concise subject line (50 characters max) in conventional commit format: <type>: <subject>
+2. Second line: Blank line
+3. Third line onwards: A detailed explanation of what changed, why it was changed, and any important implementation details. This should be 1-2 sentences max for larger changes, but can be more concise for smaller changes.
 Commit message types and their meanings:
 - fix: A bug fix
 - feat: A new feature

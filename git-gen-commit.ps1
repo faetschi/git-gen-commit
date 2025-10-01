@@ -15,6 +15,13 @@ $HELP = $false
 $Verbose = $false
 $OnlyMessage = $false
 
+# (OPTIONAL) Adjust specific Ollama Options here
+$NumCtx = 6144
+$NumPredict = $null
+$Temperature = $null
+$TopK = $null
+$TopP = $null
+
 # Colors (PowerShell equivalent)
 function Write-Color {
     param([string]$Text, [string]$Color)
@@ -114,6 +121,19 @@ if (Test-Path $CONFIG_FILE) {
         $DEFAULT_MODEL_SP_CHANGE = "tavernari/git-commit-message:sp_change"
         $DEFAULT_MODEL_SP_COMMIT = "qwen3-coder:latest"
     }
+    # Load existing config
+    $existingConfig = Get-Content -Path $CONFIG_FILE -Raw | ConvertFrom-Json
+    $MODEL_SP_CHANGE = $existingConfig.model_sp_change
+    $MODEL_SP_COMMIT = $SetModel
+    $MODEL_SP_CHANGE_DEFAULT = $existingConfig.model_sp_change_default
+    $MODEL_SP_COMMIT_DEFAULT = $existingConfig.model_sp_commit_default
+    $SUMMARY_PROMPT_TEMPLATE = $existingConfig.summary_prompt_template
+    $COMMIT_PROMPT_TEMPLATE = $existingConfig.commit_prompt_template
+
+} else {
+    # This shouldn't happen: config is always generated at installation
+    Write-Error "Configuration file not found. Please reinstall the tool."
+    exit 1
 }
 
 # Set fallback defaults if not found in config
@@ -201,18 +221,6 @@ if ($SetModel) {
         Get-AvailableModels | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
         exit 1
     }
-    # Load existing config if it exists
-    if (Test-Path $CONFIG_FILE) {
-        $existingConfig = Get-Content -Path $CONFIG_FILE -Raw | ConvertFrom-Json
-        $MODEL_SP_CHANGE = $existingConfig.model_sp_change
-        $MODEL_SP_COMMIT = $SetModel
-        $MODEL_SP_CHANGE_DEFAULT = $existingConfig.model_sp_change_default
-        $MODEL_SP_COMMIT_DEFAULT = $existingConfig.model_sp_commit_default
-    } else {
-        # If no existing config, use defaults
-        $MODEL_SP_CHANGE = $DEFAULT_MODEL_SP_CHANGE
-        $MODEL_SP_COMMIT = $SetModel
-    }
     
     # Save to config file
     try {
@@ -221,39 +229,8 @@ if ($SetModel) {
             model_sp_commit = $MODEL_SP_COMMIT
             model_sp_change_default = $MODEL_SP_CHANGE_DEFAULT
             model_sp_commit_default = $MODEL_SP_COMMIT_DEFAULT
-            summary_prompt_template = @'
-You are an expert software engineer analyzing a Git diff.
-Your task is to create a **very short, concise summary** (1-2 sentences max) of what changed.
-Focus on the functional impact and technical details that matter to developers.
-Include specific file names, function names, or code patterns that were modified.
-Keep it factual and technical - no introductory phrases.
-Here is the diff:
-{diff_content}
-IMPORTANT: Limit your response to maximum {max_chars} characters.
-'@
-    commit_prompt_template = @'
-You are a conventional commit message generator.
-Generate ONLY ONE conventional commit message in EXACT format:
-<type>: <subject>
-Commit message types and their meanings:
-- fix: A bug fix
-- feat: A new feature
-- docs: Documentation only changes
-- style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
-- refactor: A code change that neither fixes a bug nor adds a feature
-- perf: A code change that improves performance
-- test: Adding missing tests or correcting existing tests
-- chore: Changes to the build process or auxiliary tools and libraries such as documentation generation
-- ci: Changes to our CI configuration files and scripts
-- revert: Reverts a previous commit
-DO NOT include ANY introductory text, explanations, or markdown.
-DO NOT include any words like "This is", "Here's", "The change", etc.
-DO NOT add any extra formatting or quotes.
-DO NOT respond with anything except the commit message.
-Summary of changes:
-"{summary}"
-Commit message (respond with ONLY this):
-'@
+            summary_prompt_template = $SUMMARY_PROMPT_TEMPLATE
+            commit_prompt_template = $COMMIT_PROMPT_TEMPLATE
     max_chars = "200"
         } | ConvertTo-Json
 
@@ -270,46 +247,15 @@ Commit message (respond with ONLY this):
 
 if ($Reset) {
     Write-Host "Resetting to default configuration..." -ForegroundColor Yellow
-$defaultConfig = @{
-    model_sp_change = "tavernari/git-commit-message:sp_change"
-    model_sp_commit = "qwen3-coder:latest"
-    model_sp_change_default = "tavernari/git-commit-message:sp_change"
-    model_sp_commit_default = "qwen3-coder:latest"
-    summary_prompt_template = @'
-You are an expert software engineer analyzing a Git diff.
-Your task is to create a **very short, concise summary** (1-2 sentences max) of what changed.
-Focus on the functional impact and technical details that matter to developers.
-Include specific file names, function names, or code patterns that were modified.
-Keep it factual and technical - no introductory phrases.
-Here is the diff:
-{diff_content}
-IMPORTANT: Limit your response to maximum {max_chars} characters.
-'@
-    commit_prompt_template = @'
-You are a conventional commit message generator.
-Generate ONLY ONE conventional commit message in EXACT format:
-<type>: <subject>
-Commit message types and their meanings:
-- fix: A bug fix
-- feat: A new feature
-- docs: Documentation only changes
-- style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
-- refactor: A code change that neither fixes a bug nor adds a feature
-- perf: A code change that improves performance
-- test: Adding missing tests or correcting existing tests
-- chore: Changes to the build process or auxiliary tools and libraries such as documentation generation
-- ci: Changes to our CI configuration files and scripts
-- revert: Reverts a previous commit
-DO NOT include ANY introductory text, explanations, or markdown.
-DO NOT include any words like "This is", "Here's", "The change", etc.
-DO NOT add any extra formatting or quotes.
-DO NOT respond with anything except the commit message.
-Summary of changes:
-"{summary}"
-Commit message (respond with ONLY this):
-'@
-    max_chars = "200"
-} | ConvertTo-Json
+    $defaultConfig = @{
+        model_sp_change = "tavernari/git-commit-message:sp_change"
+        model_sp_commit = "qwen3-coder:latest"
+        model_sp_change_default = "tavernari/git-commit-message:sp_change"
+        model_sp_commit_default = "qwen3-coder:latest"
+        summary_prompt_template = $SUMMARY_PROMPT_TEMPLATE  # Use the template from existing config if available
+        commit_prompt_template = $COMMIT_PROMPT_TEMPLATE   # Use the template from existing config if available
+        max_chars = "200"
+    } | ConvertTo-Json
     
     # Ensure directory exists
     $configDir = Split-Path $CONFIG_FILE -Parent
@@ -531,7 +477,7 @@ function Generate-Commit-Prompt {
 # 🤖 Ollama API Call Function
 # =======================================================
 function Invoke-OllamaApi {
-    param([string]$Model, [string]$Prompt)
+    param([string]$Model, [string]$Prompt, [hashtable]$Options)
     
     # Create JSON payload
     $escapedPrompt = $Prompt -replace '\\', '\\\\' -replace '"', '\\"' -replace "`n", '\n' -replace "`r", '\r' -replace "`t", '\t'
@@ -540,6 +486,13 @@ function Invoke-OllamaApi {
         prompt = $escapedPrompt
         stream = $false
         think = $false
+        options = @{
+            num_ctx = $NumCtx
+            num_predict = $NumPredict
+            temperature = $Temperature
+            top_k = $TopK
+            top_p = $TopP
+        }
     } | ConvertTo-Json
     
     try {
@@ -567,19 +520,26 @@ function Invoke-OllamaApi {
 # =======================================================
 function Generate-Final-Commit {
     param([string]$DiffContent)
+
+    $options = @{}
+    if ($NumCtx) { $options.num_ctx = $NumCtx }
+    if ($NumPredict) { $options.num_predict = $NumPredict }
+    if ($Temperature) { $options.temperature = $Temperature }
+    if ($TopK) { $options.top_k = $TopK }
+    if ($TopP) { $options.top_p = $TopP }
     
     # Generate summary
     $summaryPrompt = Generate-Summary-Prompt $DiffContent $Limit
-    $summary = Invoke-OllamaApi $MODEL_SP_CHANGE $summaryPrompt
+    $summary = Invoke-OllamaApi $MODEL_SP_CHANGE $summaryPrompt $options
     
     if (-not $summary) {
         Write-Color "Failed to generate summary." -Color "yellow"
         return $null
     }
-    
+
     # Generate commit message from summary
     $commitPrompt = Generate-Commit-Prompt $summary $Limit
-    $output = Invoke-OllamaApi $MODEL_SP_COMMIT $commitPrompt
+    $output = Invoke-OllamaApi $MODEL_SP_COMMIT $commitPrompt $options
     
     if ($output) {
         return $output
