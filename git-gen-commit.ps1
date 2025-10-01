@@ -511,36 +511,6 @@ function Generate-Commit-Prompt {
 # =======================================================
 # 📝 Prompt Generation Functions WITH CONTEXT
 # =======================================================
-function Generate-Summary-PromptWithContext {
-    param([string]$DiffContent, [string]$UserContext, [int]$MaxChars)
-    
-    $summaryTemplate = $null
-    if (Test-Path $CONFIG_FILE) {
-        try {
-            $config = Get-Content $CONFIG_FILE | ConvertFrom-Json
-            if ($config -and $config.summary_prompt_template) {
-                $summaryTemplate = $config.summary_prompt_template
-            }
-        }
-        catch {
-            Write-Color "Error reading summary prompt template from config" -Color "red"
-            exit 1
-        }
-    }
-    
-    if (-not $summaryTemplate) {
-        Write-Color "Error: summary_prompt_template not found in config file" -Color "red"
-        exit 1
-    }
-    
-    # Add user context to the diff content for better summarization
-    $prompt = $summaryTemplate -replace '\{diff_content\}', "$DiffContent`n`nUser Context: $UserContext"
-    if ($MaxChars -gt 0) {
-        $prompt = $prompt -replace '\{max_chars\}', $MaxChars.ToString()
-    }
-    
-    return $prompt.Trim()
-}
 
 function Generate-Commit-PromptWithContext {
     param([string]$Summary, [string]$UserContext, [int]$MaxChars)
@@ -623,7 +593,7 @@ function Generate-Final-CommitWithContext {
     if ($TopP) { $options.top_p = $TopP }
     
     # Generate summary with context
-    $summaryPrompt = Generate-Summary-PromptWithContext $DiffContent $UserContext $Limit
+    $summaryPrompt = Generate-Summary-Prompt $DiffContent $Limit
     $summary = Invoke-OllamaApi $MODEL_SP_CHANGE $summaryPrompt $options
     
     if (-not $summary) {
