@@ -7,7 +7,7 @@
 ###   REPLACE THE $SCRIPT_SOURCE BELOW WITH #### 
 ###      YOUR ACTUAL SCRIPT LOCATION        ####
 ################################################
-$SCRIPT_SOURCE = "C:\Workspace\Repos\git-gen-commit\git-gen-commit.ps1"
+$SCRIPT_SOURCE = Join-Path -Path $PSScriptRoot -ChildPath "git-gen-commit.ps1"
 ################################################
 
 # Configuration - Make it consistent with bash version

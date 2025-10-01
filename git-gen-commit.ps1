@@ -370,7 +370,7 @@ if ([string]::IsNullOrWhiteSpace($DIFF)) {
 }
 
 # =======================================================
-# 🛠️ Utility Functions
+# 🛠️ Helper/Utility Functions
 # =======================================================
 function Colorize-Diff {
     param([string]$DiffContent)
@@ -408,6 +408,27 @@ function Split-Diff {
     
     # Return chunks array (PowerShell doesn't have global vars like bash)
     return $chunks
+}
+
+function ConvertToShorterCommit {
+    param([string]$OriginalMessage)
+    
+    $shortenPrompt = @'
+You are a commit message editor. 
+Make the following commit message more concise and shorter while preserving its meaning and technical accuracy.
+Keep it under 70 characters for the subject line, and limit the explanation to 1-2 sentences max.
+Return ONLY the shortened commit message in conventional commit format.
+
+Original commit message:
+"{original_message}"
+'@
+
+    $shortenPrompt = $shortenPrompt -replace '\{original_message\}', $OriginalMessage
+    
+    # Use a simpler model or same model for shortening
+    $shortened = Invoke-OllamaApi $MODEL_SP_COMMIT $shortenPrompt $options
+    
+    return $shortened
 }
 
 # =======================================================
@@ -608,7 +629,7 @@ while ($true) {
     Write-Host "--- Proposed Commit ---"
     Write-Host $finalCommitMessage
     Write-Host "-----------------------"
-    Write-Host "Choose: (c)ommit, (e)dit, (r)egenerate, (d)iscard > "
+    Write-Host "Choose: (c)ommit, (e)dit, (r)egenerate, (d)iscard, (s)horter > "
     
     $finalChoice = Read-Host
     
@@ -640,13 +661,29 @@ while ($true) {
 			exit 0  # to exit after editing and committing
 		}
 		"r" {
+            # Regenerate commit message
 			Write-Host ""
 			$finalCommitMessage = Generate-Final-Commit $DIFF
 			continue
 		}
+        "s" {
+            # Make commit message more concise
+            Write-Host "Making commit message more concise..." -ForegroundColor Yellow
+            
+            $shortenedMessage = ConvertToShorterCommit $finalCommitMessage
+            
+            if ($shortenedMessage) {
+                $finalCommitMessage = $shortenedMessage
+                continue
+            } else {
+                Write-Color "Failed to shorten commit message." -Color "red"
+                continue
+            }
+        }
 		{($_ -eq "d") -or ($_ -eq "q")} {
+            # Exit after discarding
 			Write-Color "Discarded." -Color "yellow"
-			exit 0  # to exit after discarding
+			exit 0 
 		}
 		default {
 			Write-Color "Invalid choice. Please try again." -Color "yellow"
