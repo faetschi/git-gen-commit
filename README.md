@@ -17,7 +17,7 @@ This guide explains how to install and use `git-gen-commit` in different termina
 
 ## Usage
 
-After installation, you can run ``git-gen-commit`` from anywhere in your terminal:
+After installation, you can run the git alias ``git gen-commit`` from anywhere in your terminal/bash:
 ```bash
-git-gen-commit
+git gen-commit
 ```
