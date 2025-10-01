@@ -1,5 +1,5 @@
 # Installation Guide
-This guide explains how to install and use `git-gen-commit` in different terminal environments.
+This guide explains how to install and use `gi gen-commit` in different terminal environments.
 
 ### Steps:
 1. **Adjust paths in the ``installer.ps1`` script**
@@ -12,12 +12,12 @@ This guide explains how to install and use `git-gen-commit` in different termina
    ```shell
    .\installer.ps1
    ```
-- **(Optional)** Adjust model configuration in ``"C:\tools\git-gen-commit\model-config.json"``
+- **(Optional)** Adjust model configuration in ``"C:\Users\Developer\bin\git-gen-commit"``
 
 
 ## Usage
 
-After installation, you can run the git alias ``git gen-commit`` from anywhere in your terminal/bash:
+After installation, you can run ``git gen-commit`` from anywhere in your terminal:
 ```bash
 git gen-commit
 ```
