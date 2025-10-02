@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 2025-10-02
+
+### Overview
+- **Installation instructions**: Clarified the Git‑gen‑commit install process and improved the PowerShell script’s path‑escaping logic.
+- **Cross‑platform installer**: Updated the installer script to work reliably on both Windows and non‑Windows environments.
+- **Documentation typo**: Corrected a misspelled command name in the project documentation.
+
+### Commits
+- **07b7c4c** – `fix: Simplify git‑gen‑commit installation instructions and improve PowerShell path escaping`  
+  Revised the README installation section to be more concise and added additional comments to the PowerShell installer to avoid path‑escaping pitfalls.
+
+- **fb230a4** – `refactor: Improve Git installer script cross‑platform compatibility`  
+  Modified `installer.ps1` so that it generates the Git alias and creates the wrapper batch file in a platform‑agnostic way, ensuring correct behavior on Windows, macOS, and Linux.
+
+- **e03a776** – `docs: fix typo in command name`  
+  Corrected a spelling error in the command name within the documentation, improving consistency with the actual tool usage.
+
+---
+
 ## 2025-10-01
 
 ### Overview
