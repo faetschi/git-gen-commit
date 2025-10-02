@@ -2,17 +2,16 @@
 This guide explains how to install and use `git gen-commit` in different terminal environments.
 
 ### Steps:
-1. **Adjust paths in the ``installer.ps1`` script**
-2. **Open PowerShell Window**
-3. **Navigate to the project directory and run:**
+1. **Open PowerShell Window**
+2. **Navigate to the project directory and run:**
    ```shell
    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
    ```
-4. **Run the installer script in the same PowerShell Window:**
+3. **Run the installer script in the same PowerShell Window:**
    ```shell
    .\installer.ps1
    ```
-- **(Optional)** Adjust model configuration in ``"C:\Users\Developer\bin\git-gen-commit"``
+- **(Optional)** Adjust model configuration `model-config.json` in ``"C:\Users\Developer\bin\git-gen-commit"``
 
 
 ## Usage

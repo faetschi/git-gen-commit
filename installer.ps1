@@ -142,15 +142,16 @@ try {
 Write-Host "Setting up Git alias..." -ForegroundColor White
 
 try {
-    # Simple approach that works reliably with all parameters
-    $gitAlias = "!$WIN_INSTALL_DIR\git-gen-commit.bat"
+    # Use proper Windows path escaping for Git
+    $escapedPath = $WIN_INSTALL_DIR.Replace('\', '\\') + '\\git-gen-commit.bat'
+    $gitAlias = "!`"$escapedPath`""
     git config --global alias.gen-commit "$gitAlias"
     Write-Host "Git alias 'gen-commit' set successfully!" -ForegroundColor Green
     
 } catch {
     Write-Host "Warning: Could not set Git alias automatically." -ForegroundColor Yellow
     Write-Host "Set it manually with this command:" -ForegroundColor Yellow
-        Write-Host "  git config --global alias.gen-commit '!$WIN_INSTALL_DIR\git-gen-commit.bat'" -ForegroundColor Cyan
+    Write-Host "  git config --global alias.gen-commit '!`"$WIN_INSTALL_DIR\\git-gen-commit.bat`"'" -ForegroundColor Cyan
 }
 
 # Step 6: Add to PATH (as before)
