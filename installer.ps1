@@ -2,13 +2,7 @@
 # Git Gen Commit PowerShell Setup Script
 # =======================================================
 
-################################################
-###  ⚠️  IMPORTANT CONFIGURATION STEP ⚠️   ####
-###   REPLACE THE $SCRIPT_SOURCE BELOW WITH #### 
-###      YOUR ACTUAL SCRIPT LOCATION        ####
-################################################
 $SCRIPT_SOURCE = Join-Path -Path $PSScriptRoot -ChildPath "git-gen-commit.ps1"
-################################################
 
 # Configuration - Make it consistent with bash version
 $INSTALL_DIR = "$env:USERPROFILE/bin/git-gen-commit"
@@ -72,9 +66,9 @@ if (Test-Path $SCRIPT_SOURCE) {
     exit 1
 }
 
-######################################
-###  CHANGE DEFAULT PROMPTS HERE  #### 
-######################################
+################################################
+###  CHANGE DEFAULT INSTALLED PROMPTS HERE  #### 
+################################################
 
 # Step 3: Create model-config.json with default values
 $defaultConfig = @{
@@ -149,17 +143,17 @@ Write-Host "Setting up Git alias..." -ForegroundColor White
 
 try {
     # Simple approach that works reliably with all parameters
-    $gitAlias = '!C:/Users/Developer/bin/git-gen-commit/git-gen-commit.bat'
+    $gitAlias = "!$WIN_INSTALL_DIR\git-gen-commit.bat"
     git config --global alias.gen-commit "$gitAlias"
     Write-Host "Git alias 'gen-commit' set successfully!" -ForegroundColor Green
     
 } catch {
     Write-Host "Warning: Could not set Git alias automatically." -ForegroundColor Yellow
     Write-Host "Set it manually with this command:" -ForegroundColor Yellow
-    Write-Host "  git config --global alias.gen-commit '!C:/Users/Developer/bin/git-gen-commit/git-gen-commit.bat'" -ForegroundColor Cyan
+        Write-Host "  git config --global alias.gen-commit '!$WIN_INSTALL_DIR\git-gen-commit.bat'" -ForegroundColor Cyan
 }
 
-# Step 5: Add to PATH (as before)
+# Step 6: Add to PATH (as before)
 $existingPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
 
 if ($existingPath -notlike "*$WIN_INSTALL_DIR*") {
@@ -171,7 +165,7 @@ if ($existingPath -notlike "*$WIN_INSTALL_DIR*") {
     Write-Host "PATH already contains $WIN_INSTALL_DIR" -ForegroundColor Yellow
 }
 
-# Step 6: Final verification
+# Step 7: Final verification
 Write-Host "`nFinal verification:" -ForegroundColor Magenta
 Write-Host "1. Directory exists: $(Test-Path $WIN_INSTALL_DIR)" -ForegroundColor Green
 Write-Host "2. Script exists: $(Test-Path "$WIN_INSTALL_DIR\git-gen-commit.ps1")" -ForegroundColor Green
