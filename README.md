@@ -1,5 +1,5 @@
 # Installation Guide
-This guide explains how to install and use `gi gen-commit` in different terminal environments.
+This guide explains how to install and use `git gen-commit` in different terminal environments.
 
 ### Steps:
 1. **Adjust paths in the ``installer.ps1`` script**
