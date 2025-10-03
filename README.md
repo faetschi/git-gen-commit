@@ -21,8 +21,10 @@ AI-powered commit message generator for Git, with PowerShell & Git Bash support 
 3. **Set execution policy (if needed):**
    ```powershell
    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-   ```
-4. **Run the installer:**
+
+4. **Adjust your Ollama API URL in ``git-gen-commit.ps1``**
+   
+5. **Run the installer:**
    ```powershell
    .\installer.ps1
    ```

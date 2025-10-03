@@ -15,7 +15,10 @@ $HELP = $false
 $Verbose = $false
 $OnlyMessage = $false
 
-$OLLAMA_URL = "https://ollama-test.oekb.at"
+##################################
+### ENTER YOUR OLLAMA API HERE ###
+##################################
+$OLLAMA_URL = "https://ollama-url.com"
 
 # (OPTIONAL) Adjust specific Ollama Options here
 $NumCtx = 6144
