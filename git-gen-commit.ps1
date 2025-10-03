@@ -15,6 +15,8 @@ $HELP = $false
 $Verbose = $false
 $OnlyMessage = $false
 
+$OLLAMA_URL = "https://ollama-test.oekb.at"
+
 # (OPTIONAL) Adjust specific Ollama Options here
 $NumCtx = 6144
 $NumPredict = $null
@@ -101,6 +103,34 @@ while ($argIndex -lt $args.Count) {
     }
 }
 
+# =======================================================
+# 📋 Header
+# =======================================================
+if (-not $HELP -and -not $OnlyMessage) {
+    Write-Bold "Git Gen Commit v1.0"
+}
+
+# =======================================================
+# INFO
+# =======================================================
+
+# Check for help flag and display usage information
+if ($HELP) {
+    Write-Host "Git Gen Commit Help" -ForegroundColor Green
+    Write-Host "Usage: git-gen-commit [OPTIONS]" -ForegroundColor Yellow
+    Write-Host " "
+    Write-Host "Options:" -ForegroundColor Yellow
+    Write-Host "  --only-message     Output only the commit message" -ForegroundColor White
+    Write-Host "  --verbose          Enable verbose output" -ForegroundColor White
+    Write-Host "  -h                 Show this help message" -ForegroundColor White
+    Write-Host "  --model MODEL      Specify model variant" -ForegroundColor White
+    Write-Host "  --set-model MODEL  Set the model for commit message generation" -ForegroundColor White
+    Write-Host "  --reset            Reset configuration to defaults" -ForegroundColor White
+    Write-Host "  --context NUM      Set diff context lines (default: 3)" -ForegroundColor White
+    Write-Host "  --limit NUM        Limit response to maximum number of characters" -ForegroundColor White
+    exit 0
+}
+
 ### Load Config
 
 # Load defaults from config file or set fallbacks
@@ -136,40 +166,23 @@ if (Test-Path $CONFIG_FILE) {
     exit 1
 }
 
+# Set Fallback Default Config, used for re-writing the model-config.json
+$defaultConfig = @{
+    model_sp_change = "tavernari/git-commit-message:sp_change"
+    model_sp_commit = "qwen3-coder:latest"
+    model_sp_change_default = "tavernari/git-commit-message:sp_change"
+    model_sp_commit_default = "qwen3-coder:latest"
+    summary_prompt_template = $SUMMARY_PROMPT_TEMPLATE  # Use the template from existing config if available
+    commit_prompt_template = $COMMIT_PROMPT_TEMPLATE   # Use the template from existing config if available
+    max_chars = "200"
+} | ConvertTo-Json
+
 # Set fallback defaults if not found in config
 if (-not $DEFAULT_MODEL_SP_CHANGE) {
     $DEFAULT_MODEL_SP_CHANGE = "tavernari/git-commit-message:sp_change"
 }
 if (-not $DEFAULT_MODEL_SP_COMMIT) {
     $DEFAULT_MODEL_SP_COMMIT = "qwen3-coder:latest"
-}
-
-# =======================================================
-# 📋 Header
-# =======================================================
-if (-not $HELP -and -not $OnlyMessage) {
-    Write-Bold "Git Gen Commit v1.0"
-}
-
-# =======================================================
-# INFO
-# =======================================================
-
-# Check for help flag and display usage information
-if ($HELP) {
-    Write-Host "Git Gen Commit Help" -ForegroundColor Green
-    Write-Host "Usage: git-gen-commit [OPTIONS]" -ForegroundColor Yellow
-    Write-Host " "
-    Write-Host "Options:" -ForegroundColor Yellow
-    Write-Host "  --only-message     Output only the commit message" -ForegroundColor White
-    Write-Host "  --verbose          Enable verbose output" -ForegroundColor White
-    Write-Host "  -h                 Show this help message" -ForegroundColor White
-    Write-Host "  --model MODEL      Specify model variant" -ForegroundColor White
-    Write-Host "  --set-model MODEL  Set the model for commit message generation" -ForegroundColor White
-    Write-Host "  --reset            Reset configuration to defaults" -ForegroundColor White
-    Write-Host "  --context NUM      Set diff context lines (default: 3)" -ForegroundColor White
-    Write-Host "  --limit NUM        Limit response to maximum number of characters" -ForegroundColor White
-    exit 0
 }
 
 # =======================================================
@@ -180,7 +193,7 @@ function TestModelExists {
     
     try {
         # Get list of available models
-        $models = Invoke-RestMethod -Uri "https://ollama-test.oekb.at/api/tags" -Method Get -TimeoutSec 10
+        $models = Invoke-RestMethod -Uri ($OLLAMA_URL + "/api/tags") -Method Get -TimeoutSec 10
         
         if ($models -and $models.models) {
             # Check if model exists in the list
@@ -200,7 +213,7 @@ function TestModelExists {
 
 function Get-AvailableModels {
     try {
-        $models = Invoke-RestMethod -Uri "https://ollama-test.oekb.at/api/tags" -Method Get -TimeoutSec 10
+        $models = Invoke-RestMethod -Uri ($OLLAMA_URL + "/api/tags") -Method Get -TimeoutSec 10
         
         if ($models -and $models.models) {
             return $models.models | ForEach-Object { $_.name }
@@ -247,15 +260,6 @@ if ($SetModel) {
 
 if ($Reset) {
     Write-Host "Resetting to default configuration..." -ForegroundColor Yellow
-    $defaultConfig = @{
-        model_sp_change = "tavernari/git-commit-message:sp_change"
-        model_sp_commit = "qwen3-coder:latest"
-        model_sp_change_default = "tavernari/git-commit-message:sp_change"
-        model_sp_commit_default = "qwen3-coder:latest"
-        summary_prompt_template = $SUMMARY_PROMPT_TEMPLATE  # Use the template from existing config if available
-        commit_prompt_template = $COMMIT_PROMPT_TEMPLATE   # Use the template from existing config if available
-        max_chars = "200"
-    } | ConvertTo-Json
     
     # Ensure directory exists
     $configDir = Split-Path $CONFIG_FILE -Parent
@@ -637,7 +641,7 @@ function Invoke-OllamaApi {
     
     try {
         # Call Ollama API
-        $response = Invoke-RestMethod -Uri "https://ollama-test.oekb.at/api/generate" `
+        $response = Invoke-RestMethod -Uri ($OLLAMA_URL + "/api/generate") `
                                      -Method Post `
                                      -ContentType "application/json" `
                                      -Body $jsonPayload
