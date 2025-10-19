@@ -75,14 +75,12 @@ git gen-commit
 - Improved error handling
 - Support for multi-language commit messages
 
-## License
-
-MIT License.
-
----
-
 ## Contributing
 
 > Pull requests and issues are welcome! 
 
 Please open an issue for bugs or feature requests.
+
+## License
+
+MIT - Free to use, modify, and distribute. No warranty provided.
