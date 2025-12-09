@@ -43,10 +43,6 @@ All notable changes to this project will be documented in this file.
   Fixed a typo in the README and updated file paths to match the new repository layout.  
   Minor documentation cleanup for clarity.
 
-- **2c875ca** – `Merge branch 'master' of ssh://devops.oekb.at:22/oekb_dev_int/testprojects/_git/git-gen-commit`  
-  Integrated changes from the `master` branch, aligning the main line of development with the feature branch.  
-  No new features or bug fixes introduced in this merge.
-
 - **bbc3e93** – `feat: load configuration from file and support Ollama model parameters`  
   Added logic to load model configurations from `model-config.json` (or the default config file) and support custom Ollama request options.  
   Introduced default model selection and validation helpers (`TestModelExists`, `Get-AvailableModels`).  
